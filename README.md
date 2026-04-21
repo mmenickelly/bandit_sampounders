@@ -1,2 +1,16 @@
-# bandit_sampounders
-A mostly static repository containing an implementation of SAM-POUNDERS to accompany the paper "Sampling Summands in Expensive Finite-Sum Optimization via Contextual Bandit Methods"
+# SAM-POUNDERS
+This is a mostly static repository containing an implementation of SAM-POUNDERS to accompany the paper "Sampling Summands in Expensive Finite-Sum Optimization via Contextual Bandit Methods"
+
+The code in this repository has two primary dependencies:
+1) You must clone the [IBCDFO](https://github.com/POptUS/IBCDFO) repository and follow all instructions there to collect its dependencies, in particular MINQ.
+2) You must similarly clone the [BenDFO](https://github.com/POptUS/BenDFO) repository and follow all instructions.
+
+Once these repositories are findable on your path, you can run the experiments in Sections 5.2.1 and 5.2.2 by navigating to the `tests` directory, and running the files `bendfo_test.m`. Be sure to read the headers in those documents. 
+
+If you are interested in reproducing Figure 1, you can use `strawman_compare.m`. 
+
+The experiments in Section 5.2.3 are notably more complicated, since it requires you to supply your own API key to Gemini, but you should be able to figure out how to get your own setup working by inspecting `argoGeminiCreateContent.m`. (Argo is a proxy used by Argonne National Laboratory, at the time of writing this paper, to access multiple LLMs). The experiment can then be run by running `oscillator_test.m`. 
+
+The figures in the paper can then be generated from, respectively, `paper_figs.m` and `plot_oscillator_results.m`. 
+
+

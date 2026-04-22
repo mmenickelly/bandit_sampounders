@@ -2,7 +2,7 @@
 This is a mostly static repository containing an implementation of SAM-POUNDERS to accompany the paper "Sampling Summands in Expensive Finite-Sum Optimization via Contextual Bandit Methods"
 
 The code in this repository has two primary dependencies:
-1) You must clone the [IBCDFO](https://github.com/POptUS/IBCDFO) repository and follow all instructions there to collect its dependencies, in particular MINQ.
+1) You must clone the [IBCDFO](https://github.com/POptUS/IBCDFO) repository and follow all instructions there to collect its dependencies, in particular MINQ. Ensure that the branch is set to `main`.
 2) You must similarly clone the [BenDFO](https://github.com/POptUS/BenDFO) repository and follow all instructions.
 
 Once these repositories are findable on your path, you can run the experiments in Sections 5.2.1 and 5.2.2 by navigating to the `tests` directory, and running the files `bendfo_test.m`. Be sure to read the headers in those documents. 

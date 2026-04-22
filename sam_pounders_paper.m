@@ -51,9 +51,6 @@ if isfield(Options, 'hfun')
     hfun = Options.hfun;
     combinemodels = Options.combinemodels;
 else
-    % Use least-squares hfun by default
-    %[here_path, ~, ~] = fileparts(mfilename('fullpath'));
-    %addpath(fullfile(here_path, 'general_h_funs'));
     hfun = @(F)sum(F.^2);
     combinemodels = @combine_leastsquares;
 end
@@ -127,10 +124,6 @@ if nfs == 0 % Need to do the first evaluation
     end
     % populate ComponentModels
     for j = 1:m
-        % This structure assumes that each subset id_tag can/should be
-        % computed independently. If computations were done in batches,
-        % this loop would be done over batches that would be supplied as 
-        % input. 
         id_tag = j;
         fun = @(x)Ffun(x, id_tag);
         models(j) = ComponentModel(id_tag, fun, X_0, F0(j), xk_in, np_max, Model.Par, Low, Upp, delta_0, nf_max, 1, batch_size);
@@ -142,10 +135,7 @@ if nfs == 0 % Need to do the first evaluation
 else % Have other function values around
     % populate ComponentModels
     for id_tag = 1:m
-        fun = @(x)Ffun(x, id_tag);
-        % Notice that this assumes all components of F were evaluated at
-        % every point in X_0. Future engineering will have to worry about
-        % what to do with / whether to accept partial Fvecs at points X_0. 
+        fun = @(x)Ffun(x, id_tag); 
         models(id_tag) = ComponentModel(id_tag, fun, X_0(1:nfs, :), Prior.F_init(1:nfs, id_tag)', xk_in, np_max, Model.Par, Low, Upp, delta_0, nf_max, 1, batch_size);
         % update nf in this scope:
         %nf = nf + models(id_tag).nf;        
@@ -168,13 +158,10 @@ combined_probs = ones(1, m);
 
 % parameters for Exp4
 num_experts = length(expert_array);
-%if num_experts > 1
-    K = nf_max / batch_size; % this is a guess of the maximum number of Exp4 rounds that can be played within budget. 
-    fudge_factor = 10; 
-    Exp4gamma = fudge_factor * sqrt((m * log(max(2, num_experts))) / (batch_size * K));
-%else
-%    Exp4gamma = 1.0;
-%end
+
+K = nf_max / batch_size; % this is a guess of the maximum number of Exp4 rounds that can be played within budget. 
+fudge_factor = 10; 
+Exp4gamma = fudge_factor * sqrt((m * log(max(2, num_experts))) / (batch_size * K));
 
 % equal initial weights on experts by default (can/should be exposed) 
 weights_model = ones(num_experts, 1) / num_experts; 
@@ -185,9 +172,7 @@ EMAweight = 0.8;
 EMAc = 3.0; 
 
 % main loop
-iter = 1; % this counter is for being able to reconstruct, from the models 
-% class object, the history of when each component function was evaluated,
-% and why. 
+iter = 1;
 
 while nf < nf_max
 
@@ -339,10 +324,6 @@ while nf < nf_max
         % Now do the evals.
         valid_models = validity_checker(models); % do this first before we tentatively update model centers.
 
-        % AMELIORATED:
-        %[models, FX_inc, FXsp, new_evals] = evaluate_ameliorated_model(models, combined_probs, to_update, X_inc, Xsp, model_prediction_inc, model_prediction_sp, iter, delta, nf, nf_max);
-        % AVERAGE:
-        %[models, FX_inc, FXsp, new_evals] = evaluate_average_model(models, to_update, X_inc, Xsp, delta, nf_max, nf, iter);
         [models, FX_inc, FXsp, average_FX_inc, average_FXsp, new_evals] = evaluate_two_points(models, X_inc, Xsp, delta, to_update, combined_probs, iter);
 
         nf = nf + new_evals;
@@ -378,19 +359,9 @@ while nf < nf_max
         if (rho >= eta_1 || ((rho > 0) && all(valid_models)))
             avg_hF_Xsp = hfun(average_FXsp);
             if printf
-                % NOTICE THAT THIS IS GIVING THE DETERMINISTIC VALUE FOR
-                % THE SAKE OF EXPERIMENTATION. THE VARIABLE fval SHOULD BE
-                % CHANGED TO hfun(FXsp) FOR DEPLOYMENT. 
-                %fval = hfun(Ffun(Xsp, 1:m));
                 fprintf('%4i  %4i  Successful iteration  %11.5e    %11.5e   %11.5e \n', nf, iter, avg_hF_Xsp, delta, ng);
             end
             X_inc = Xsp;
-
-            % check for monotonicity in h values - if violated, increase batch size: 
-            % if avg_hF_Xsp > F_inc
-            %     batch_size = min(batch_size + init_batch_size, m);
-            % end
-            F_inc = avg_hF_Xsp;
 
             % output stuff:
             success_count = success_count + 1;
@@ -398,7 +369,7 @@ while nf < nf_max
             nf_array(success_count) = nf; 
             % because we tentatively updated the centers, check if we can
             % update the model center "for free" 
-            for j = to_update' %1:m
+            for j = to_update' 
                 [acceptable, ~] = probe_interpolation(models(j), delta);
                 if acceptable
                     [models(j), new_evals] = update_model(models(j), delta, nf_max, nf);
@@ -431,7 +402,6 @@ while nf < nf_max
         end
     
         already_updated = find(center_checker(models, X_inc));
-        %close_enough = find(close_to_center_checker(models, X_inc, delta));
         %% update TR radius
         if (rho >= eta_1)  &&  (step_norm > delta_inact * delta)
             delta = min(delta * gamma_inc, delta_max);
@@ -500,12 +470,6 @@ while nf < nf_max
     additional_context.already_updated = already_updated; 
     additional_context.hfun = combinemodels; 
 
-    % First - is our batch size OK? 
-    % need a coarse variance estimate
-    %[~, var] = lipschitz_estimate_policy(models, batch_size, 'model', additional_context);
-    %if var > delta^4
-    %end
-
     probs = zeros(m, num_experts); 
     for j = 1:num_experts
         probs(:, j) = expert_array{j}(models, batch_size, 'model', additional_context);
@@ -570,12 +534,6 @@ while nf < nf_max
      weights_model = weights_model / sum(weights_model); % normalization
      already_updated = union(already_updated, to_update'); 
     
-     %% TEMPORARILY COMMENTING, SO WE USE AVERAGE MODEL HERE. 
-     % build the ameliorated model
-     % Notice we are assuming Cres, Gres, Hres are populated with the
-     % average model data. 
-     %[Cres, Gres, Hres] = build_ameliorated_model(models, X_inc, to_update, combined_probs, Cres, Gres, Hres);
-
     iter = iter + 1; % update the iteration counter
 end % end while
 end % end function

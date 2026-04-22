@@ -63,9 +63,6 @@ for solver = 1:4
 
     plot(xgrid,q10,'Color','k','LineStyle','--','LineWidth',0.75)
     plot(xgrid,q90,'Color','k','LineStyle','--','LineWidth',0.75)
-    % xlabel('x');
-    % ylabel('y');
-    % title('Median and Quantile Bands');
     grid on;
 end
 xlabel('Component function evaluations','FontSize',FS)

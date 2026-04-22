@@ -1,7 +1,7 @@
 % performance profiles 
 FS = 18; 
 
-load lipschitz_test.mat
+load lipschitz_test_1.mat
 Hplot = H; effortplot = effort; 
 num_seeds = 3;
 np = 53;

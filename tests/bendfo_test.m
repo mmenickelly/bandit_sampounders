@@ -13,6 +13,13 @@ addpath('~/IBCDFO/pounders/m')
 addpath('~/IBCDFO/pounders/m/general_h_funs')
 addpath('../'); % don't edit this one, this is just getting sam_pounders on the path. 
 
+%% Finally, these determine which test you run:
+which_test = 'lipschitz'; % for the Lipschitz test of Section 5.2.1
+%which_test = 'surrogate'; % for the surrogate test of Section 5.2.2
+
+%% And choose the number of random seeds you want to run. 
+num_seeds = 3;
+
 addpath('~/BenDFO/m/')
 load('~/BenDFO/data/dfo.dat')
 load('bendfo_bounds.mat');
@@ -35,15 +42,17 @@ hfun = @(F)sum(F.^2);
 num_solvers = 4;
 simplex_grads = 50;
 
-for seed_count = 2:3
+for seed_count = 1:num_seeds
     nf_max = simplex_grads * max(dfo(:, 2).*dfo(:, 3));
     H = NaN * ones(nf_max, num_probs, num_solvers); 
     effort = H; 
-    %savestr = strcat('lipschitz_test_',num2str(seed_count),'.mat');
-    savestr = strcat('surrogate_test_',num2str(seed_count),'.mat');
+    if strcmp(which_test, 'lipschitz')
+        savestr = strcat('lipschitz_test_',num2str(seed_count),'.mat');
+    elseif strcmp(which_test, 'surrogate')
+        savestr = strcat('surrogate_test_',num2str(seed_count),'.mat');
+    end
     for np = 1:num_probs
     
-        try
         nprob = dfo(np, 1);
         n = dfo(np, 2);
         m = dfo(np, 3);
@@ -53,12 +62,12 @@ for seed_count = 2:3
         X0 = dfoxs(n, nprob, 10^scale_factor); 
     
         % problem-dependent parameters (depend on n)
-    
-        %Low = -Inf * ones(1, n);
-        %Upp = Inf * ones(1, n); 
-    
-        % if using surrogate:
-        Low = L{np}; Upp = U{np}; 
+        if strcmp(which_test, 'lipschitz')
+            Low = -Inf * ones(1, n);
+            Upp = Inf * ones(1, n); 
+        elseif strcmp(which_test, 'surrogate')
+            Low = L{np}; Upp = U{np}; 
+        end
     
         npmax = 2*n + 1;
         nf_max = simplex_grads*n;
@@ -72,11 +81,15 @@ for seed_count = 2:3
             % there is no reason to run this deterministic method more than
             % once. 
             % run pounders
+            try
             [~, ~, hF] = pounders(fun, X0, n, nf_max, g_tol, delta_0, m, Low, Upp, [], Options);
         
             % populate H and effort
             H(1:length(hF), np, solver_count) = hF; 
             effort(1:length(hF), np, solver_count) = linspace(m, m * length(hF), length(hF));
+            catch
+                fprintf('This one failed. \n')
+            end
         end
     
         %% SOLVER 2 - UNIFORM ONLY
@@ -84,35 +97,15 @@ for seed_count = 2:3
         fun = @(x, Set)bendfo_wrapper(m, n, nprob, x, Set);
         nf_max = simplex_grads*m*n;
         batch_size = floor(m/2);
-        if seed_count == 1 % added this option for surrogate test. 
-            % sam-pounders specific:
-        
-            macro_seed = 88 + seed_count - 1;
-            rng(macro_seed);           
-            
-            expert_array = {@uniform_policy}; 
-            
-            [X_inc_array, nf_array, models] = sam_pounders_paper(fun, X0, n, nf_max, g_tol, delta_0, m, Low, Upp, batch_size, expert_array, [], Options, []);
-        
-            % populate H and effort
-            nX = size(X_inc_array, 1);
-            for j = 1:nX
-                H(j, np, solver_count) = hfun(fun(X_inc_array(j, :), 1:m));
-            end
-            effort(1:nX, np, solver_count) = nf_array;
-        end
-    
-         %% SOLVER 3 - LIPSCHITZ (SURROGATE) ONLY
-        solver_count = solver_count + 1;
+
+        % sam-pounders specific:
     
         macro_seed = 88 + seed_count - 1;
-        rng(macro_seed);
+        rng(macro_seed);           
         
-        %expert_array = {@lipschitz_estimate_policy}; 
+        expert_array = {@uniform_policy}; 
         
-        surrogate_array = rbf_surrogates(@(x)bendfo_wrapper(m, n, nprob, x, 1:m), n, m, Low, Upp);
-        expert_array = {@(models, batch_size, sample_type, data)surrogate_informed_policy(models, batch_size, sample_type, data, surrogate_array, Low, Upp, spsolver)};
-        
+        try
         [X_inc_array, nf_array, models] = sam_pounders_paper(fun, X0, n, nf_max, g_tol, delta_0, m, Low, Upp, batch_size, expert_array, [], Options, []);
     
         % populate H and effort
@@ -121,6 +114,35 @@ for seed_count = 2:3
             H(j, np, solver_count) = hfun(fun(X_inc_array(j, :), 1:m));
         end
         effort(1:nX, np, solver_count) = nf_array;
+        catch
+            fprintf('This one failed. \n')
+        end
+    
+         %% SOLVER 3 - LIPSCHITZ (SURROGATE) ONLY
+        solver_count = solver_count + 1;
+    
+        macro_seed = 88 + seed_count - 1;
+        rng(macro_seed);
+        
+        if strcmp(which_test, 'lipschitz')
+            expert_array = {@lipschitz_estimate_policy}; 
+        elseif strcmp(which_test, 'surrogate')   
+            surrogate_array = rbf_surrogates(@(x)bendfo_wrapper(m, n, nprob, x, 1:m), n, m, Low, Upp);
+            expert_array = {@(models, batch_size, sample_type, data)surrogate_informed_policy(models, batch_size, sample_type, data, surrogate_array, Low, Upp, spsolver)};
+        end
+
+        try
+        [X_inc_array, nf_array, models] = sam_pounders_paper(fun, X0, n, nf_max, g_tol, delta_0, m, Low, Upp, batch_size, expert_array, [], Options, []);
+    
+        % populate H and effort
+        nX = size(X_inc_array, 1);
+        for j = 1:nX
+            H(j, np, solver_count) = hfun(fun(X_inc_array(j, :), 1:m));
+        end
+        effort(1:nX, np, solver_count) = nf_array;
+        catch
+            fprintf('This one failed. \n')
+        end
     
          %% SOLVER 4 - MIXED DISTRIBUTIONS
         solver_count = solver_count + 1;
@@ -128,10 +150,13 @@ for seed_count = 2:3
         macro_seed = 88 + seed_count - 1;
         rng(macro_seed);
         
-        %expert_array = {@lipschitz_estimate_policy, @uniform_policy}; 
-        
-        expert_array = {@(models, batch_size, sample_type, data)surrogate_informed_policy(models, batch_size, sample_type, data, surrogate_array, Low, Upp, spsolver), @uniform_policy};
-        
+        if strcmp(which_test, 'lipschitz')
+            expert_array = {@lipschitz_estimate_policy, @uniform_policy}; 
+        elseif strcmp(which_test, 'surrogate')
+            expert_array = {@(models, batch_size, sample_type, data)surrogate_informed_policy(models, batch_size, sample_type, data, surrogate_array, Low, Upp, spsolver), @uniform_policy};
+        end
+
+        try
         [X_inc_array, nf_array, models] = sam_pounders_paper(fun, X0, n, nf_max, g_tol, delta_0, m, Low, Upp, batch_size, expert_array, [], Options, []);
     
         % populate H and effort
@@ -146,20 +171,3 @@ for seed_count = 2:3
         save(savestr,'H','effort','-mat');
     end
 end
-
-%% POST PROCESSING STUFF TO BE PUT BACK LATER
-% num_iters = length(models(1).critical_iters);
-% nfcount = zeros(m, num_iters);
-% for j = 1:m
-%     nfcount(j, 1:length(models(j).critical_iters)) = models(j).critical_iters;
-%     nfcount(j, 1:length(models(j).trial_iters)) = nfcount(j, 1:length(models(j).trial_iters)) + models(j).trial_iters;
-%     nfcount(j, 1:length(models(j).improve_iters)) = nfcount(j, 1:length(models(j).improve_iters)) + models(j).improve_iters;
-%     nfcount(j, 1:length(models(j).update_iters)) = nfcount(j, 1:length(models(j).update_iters)) + models(j).update_iters;
-% end
-% % the logic of the algorithm allows for iterations that don't have ANY
-% % evaluations. these are uninteresting in some sense, so we'll just remove
-% % them from this summary figure. 
-% nfcount(:,all(nfcount == 0))=[];
-% figure;
-% %spy(nfcount);
-% spyc(nfcount');

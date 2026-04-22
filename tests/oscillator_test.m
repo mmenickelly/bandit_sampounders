@@ -78,7 +78,6 @@ for seed = 1:num_seeds
     nfs = n + 1;
     
     Prior.X_init = X_init; Prior.F_init = F_init; Prior.nfs = n + 1; Prior.xk_in = 1;
-    %Prior = [];
     
     [~,~,hF_pounders] = pounders(fun, X_init, n, nf_max, g_tol, delta_0, m, Low, Upp, Prior, Options);
     effort_pounders = linspace(m, m * length(hF_pounders), length(hF_pounders));
@@ -126,30 +125,4 @@ for seed = 1:num_seeds
     effort(1:length(hF_lip), 4, seed) = effort_lip;
 
     save('oscillator_results.mat', 'H', 'effort', '-mat');
-    if seed == 1
-        figure;
-    end
-    plot(effort_pounders, hF_pounders, 'Color', 'r');
-    hold on
-    plot(effort_uni, hF_uni, 'Color', 'y')
-    plot(effort_lip, hF_lip, 'Color', 'b')
-    plot(effort_gemini, hF_gemini, 'Color', 'g')
 end
-
-
-
-% num_iters = length(models(1).critical_iters);
-% nfcount = zeros(m, num_iters);
-% for j = 1:m
-%     nfcount(j, 1:length(models(j).critical_iters)) = models(j).critical_iters;
-%     nfcount(j, 1:length(models(j).trial_iters)) = nfcount(j, 1:length(models(j).trial_iters)) + models(j).trial_iters;
-%     nfcount(j, 1:length(models(j).improve_iters)) = nfcount(j, 1:length(models(j).improve_iters)) + models(j).improve_iters;
-%     nfcount(j, 1:length(models(j).update_iters)) = nfcount(j, 1:length(models(j).update_iters)) + models(j).update_iters;
-% end
-% % the logic of the algorithm allows for iterations that don't have ANY
-% % evaluations. these are uninteresting in some sense, so we'll just remove
-% % them from this summary figure. 
-% nfcount(:,all(nfcount == 0))=[];
-% figure;
-% %spy(nfcount);
-% spyc(nfcount');

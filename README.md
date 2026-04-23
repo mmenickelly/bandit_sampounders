@@ -1,5 +1,5 @@
 # SAM-POUNDERS
-This is a mostly static repository containing an implementation of SAM-POUNDERS to accompany the paper "Sampling Summands in Expensive Finite-Sum Optimization via Contextual Bandit Methods"
+This is a mostly static repository containing an implementation of SAM-POUNDERS to accompany the paper "Importance Sampling in Expensive Finite-Sum Optimization via Contextual Bandit Methods"
 
 The code in this repository has two primary dependencies:
 1) You must clone the [IBCDFO](https://github.com/POptUS/IBCDFO) repository and follow all instructions there to collect its dependencies, in particular MINQ. Ensure that the branch is set to `main`.
